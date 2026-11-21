@@ -3,13 +3,32 @@ from pathlib import Path
 
 HEALPIX_RES = 8
 PATCH_RES = 6
+RATE_POINTS = [
+    (0.0005, 1),
+    (0.0009, 1),
+    (0.0018, 1),
+    (0.0035, 2),
+    (0.0067, 3),
+    (0.0130, 4),
+    (0.0250, 5),
+    (0.0483, 6),
+    (0.0932, 7),
+    (0.1800, 8),
+]
 
 
 class OSLOWrapper:
     name = "oslo"
 
+    def __init__(self, workdir: Path, gpu: bool = False):
+        self.workdir = workdir
+        (self.workdir / "healpix").mkdir(parents=True, exist_ok=True)
+        (self.workdir / "neighbor_structure").mkdir(parents=True, exist_ok=True)
+        (self.workdir / "out" / "reconstruction").mkdir(parents=True, exist_ok=True)
+        (self.workdir / "checkpoints").mkdir(parents=True, exist_ok=True)
+
     def rate_points(self) -> list[str]:
-        pass
+        return RATE_POINTS
 
     def _ERP_to_HEALPix(self, image: Path):
         try:
@@ -18,14 +37,14 @@ class OSLOWrapper:
                     "python3",
                     "./generate_healpix_samples_and_split_to_train_and_test.py",
                     "-i",
-                    f"{image.parent}",
+                    image.parent.as_posix(),
                     "-e",
-                    f"{image.suffix}",
+                    f"{image.name.split('.')[-1]}",
                     "-r",
                     f"{HEALPIX_RES}",
                     "-s",
                     "-o",
-                    f"{image.parent / 'HEALPix'}",
+                    (self.workdir / "healpix").as_posix(),
                     "--no-set-separation",
                 ],
                 capture_output=True,
@@ -57,17 +76,16 @@ class OSLOWrapper:
             print(f"Failed with {e.returncode}")
             print(e.stderr)
 
-    def run(self, image, rate_point, workdir):
+    def run(self, image, rate_point):
         try:
             result = subprocess.run(
                 [
                     "python3",
                     "./main_sphere_compression.py",
-                    "--gpu",
                     "-m",
                     "SphereFactorizedPrior",
                     "-nd",
-                    f"{workdir / 'neighbor_structure'}",
+                    f"{self.workdir / 'neighbor_structure'}",
                 ],
                 capture_output=True,
                 check=True,

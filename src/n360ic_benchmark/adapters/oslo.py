@@ -18,8 +18,6 @@ RATE_POINTS = [
 
 
 class OSLOWrapper:
-    name = "oslo"
-
     def __init__(self, workdir: Path, gpu: bool = False):
         self.workdir = workdir
         (self.workdir / "healpix").mkdir(parents=True, exist_ok=True)
@@ -81,7 +79,7 @@ class OSLOWrapper:
             print(f"Failed with {e.returncode}")
             print(e.stderr)
 
-    def run(self, image, rate_point):
+    def run(self, rate_point, checkpoint_file):
         lmbda, q = rate_point
         try:
             result = subprocess.run(
@@ -99,12 +97,7 @@ class OSLOWrapper:
                     "-q",
                     str(q),
                     "--checkpoint-file",
-                    (
-                        self.workdir
-                        / "checkpoints"
-                        / "factorizedPrior"
-                        / "factorizedPrior_lambda_0.0932_q_7.pth.tar"
-                    ).as_posix(),
+                    checkpoint_file,
                     "--foldername-valtest",
                     (self.workdir / "out" / "reconstruction").as_posix(),
                     "-t",
@@ -113,6 +106,52 @@ class OSLOWrapper:
                     str(HEALPIX_RES),
                     "-prvt",
                     str(PATCH_RES),
+                ],
+                capture_output=True,
+                check=True,
+                text=True,
+            )
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            print(f"Failed with {e.returncode}")
+            print(e.stderr)
+
+
+class OSLOICWrapper(OSLOWrapper):
+    def run(self, rate_point, checkpoint_file):
+        lmbda, q = rate_point
+        try:
+            result = subprocess.run(
+                [
+                    "python3",
+                    "./main_sphere_compression.py",
+                    "-m",
+                    "SphereMeanScaleHyperprior",
+                    "-nd",
+                    (self.workdir / "neighbor_structure").as_posix(),
+                    "-o",
+                    (self.workdir / "test").as_posix(),
+                    "--lambda",
+                    str(lmbda),
+                    "-q",
+                    str(q),
+                    "--checkpoint-file",
+                    checkpoint_file,
+                    "--foldername-valtest",
+                    (self.workdir / "out" / "reconstruction").as_posix(),
+                    "-t",
+                    (self.workdir / "healpix" / "test.txt"),
+                    "-hr",
+                    str(HEALPIX_RES),
+                    "-prvt",
+                    str(PATCH_RES),
+                    "--context-model",
+                    "autoregressive",
+                    "--attention",
+                    "--nonlinearity",
+                    "RB",
+                    "--unpool-func",
+                    "SDPAConvTranspose",
                 ],
                 capture_output=True,
                 check=True,

@@ -1,8 +1,8 @@
 import subprocess
 from pathlib import Path
 
-HEALPIX_RES = 8
-PATCH_RES = 6
+HEALPIX_RES = 4
+PATCH_RES = 2
 RATE_POINTS = [
     (0.0005, 1),
     (0.0009, 1),
@@ -30,7 +30,7 @@ class OSLOWrapper:
     def rate_points(self) -> list[str]:
         return RATE_POINTS
 
-    def _ERP_to_HEALPix(self, image: Path):
+    def ERP_to_HEALPix(self, image: Path):
         try:
             result = subprocess.run(
                 [
@@ -45,7 +45,10 @@ class OSLOWrapper:
                     "-s",
                     "-o",
                     (self.workdir / "healpix").as_posix(),
-                    "--no-set-separation",
+                    "-t",
+                    str(0.0),
+                    "-v",
+                    str(0.0),
                 ],
                 capture_output=True,
                 check=True,
@@ -56,7 +59,7 @@ class OSLOWrapper:
             print(f"Failed with {e.returncode}")
             print(e.stderr)
 
-    def _build_neighbor_struct(self):
+    def build_neighbor_struct(self):
         try:
             result = subprocess.run(
                 [
@@ -66,6 +69,8 @@ class OSLOWrapper:
                     f"{HEALPIX_RES}",
                     "-pr",
                     f"{PATCH_RES}",
+                    "-o",
+                    (self.workdir / "neighbor_structure").as_posix(),
                 ],
                 capture_output=True,
                 check=True,
@@ -77,6 +82,7 @@ class OSLOWrapper:
             print(e.stderr)
 
     def run(self, image, rate_point):
+        lmbda, q = rate_point
         try:
             result = subprocess.run(
                 [
@@ -85,7 +91,28 @@ class OSLOWrapper:
                     "-m",
                     "SphereFactorizedPrior",
                     "-nd",
-                    f"{self.workdir / 'neighbor_structure'}",
+                    (self.workdir / "neighbor_structure").as_posix(),
+                    "-o",
+                    (self.workdir / "test").as_posix(),
+                    "--lambda",
+                    str(lmbda),
+                    "-q",
+                    str(q),
+                    "--checkpoint-file",
+                    (
+                        self.workdir
+                        / "checkpoints"
+                        / "factorizedPrior"
+                        / "factorizedPrior_lambda_0.0932_q_7.pth.tar"
+                    ).as_posix(),
+                    "--foldername-valtest",
+                    (self.workdir / "out" / "reconstruction").as_posix(),
+                    "-t",
+                    (self.workdir / "healpix" / "test.txt"),
+                    "-hr",
+                    str(HEALPIX_RES),
+                    "-prvt",
+                    str(PATCH_RES),
                 ],
                 capture_output=True,
                 check=True,

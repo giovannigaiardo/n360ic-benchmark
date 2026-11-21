@@ -1,0 +1,3 @@
+[submodule "codecs/oslo-360-degree-image-compression"]
+	path = codecs/oslo-360-degree-image-compression
+	url = https://gitlab.inria.fr/on-the-sphere-learning-for-omnidirectional-images-oslo/oslo-360-degree-image-compression.git

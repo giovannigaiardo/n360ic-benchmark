@@ -3,17 +3,16 @@ from pathlib import Path
 
 
 class LIC360Wrapper:
-    name = "lic360"
-
-    def __init__(self, workdir: Path):
+    def __init__(self, workdir: Path, script_path: Path):
         self.workdir = workdir
         (self.workdir / "out" / "reconstruction").mkdir(parents=True, exist_ok=True)
         (self.workdir / "checkpoints").mkdir(parents=True, exist_ok=True)
+        self.script_path = script_path
 
     def run(self, image_path: Path, model_idx: int, ssim: bool = False):
         enc_commands = [
             "python3",
-            "./test/lic360_demo.py",
+            self.script_path.as_posix(),
             "--enc",
             "--img-list",
             image_path.as_posix(),
@@ -24,7 +23,7 @@ class LIC360Wrapper:
         ]
         dec_commands = [
             "python3",
-            "./test/lic360_demo.py",
+            self.script_path.as_posix(),
             "--dec",
             "--code-list",
             image_path.stem,

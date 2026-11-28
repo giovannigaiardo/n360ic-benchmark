@@ -31,16 +31,19 @@ OSLO_DATA="$(cd "${OSLO_DATA}" && pwd)"  # absolute
 WORK_DIR="${N360IC_OSLO_WORK:-${REPO_ROOT}/work/oslo}"
 mkdir -p "${WORK_DIR}"
 
-if ! docker image inspect "${IMAGE_TAG}" >/dev/null 2>&1; then
+if ! podman image exists "${IMAGE_TAG}"; then
   echo ">> building ${IMAGE_TAG} (first run only)..."
-  docker build -f "${REPO_ROOT}/docker/oslo/Dockerfile" -t "${IMAGE_TAG}" "${REPO_ROOT}"
+  podman build -f "${REPO_ROOT}/docker/oslo/Dockerfile" -t "${IMAGE_TAG}" "${REPO_ROOT}"
 fi
 
 echo ">> running OSLO (${IMAGE_TAG})"
-exec docker run --rm -it \
-  --gpus all \
-  -v "${OSLO_DATA}:/data:ro" \
-  -v "${WORK_DIR}:/work" \
+# GPU access via CDI: `--device nvidia.com/gpu=all` (requires the NVIDIA Container
+# Toolkit CDI spec generated on the host: `nvidia-ctk cdi generate`).
+# :ro,Z / :Z relabel the mounts for SELinux hosts (no-op elsewhere).
+exec podman run --rm -it \
+  --device nvidia.com/gpu=all \
+  -v "${OSLO_DATA}:/data:ro,Z" \
+  -v "${WORK_DIR}:/work:Z" \
   "${IMAGE_TAG}" \
   --workdir /work \
   "${PASSTHROUGH[@]}"
